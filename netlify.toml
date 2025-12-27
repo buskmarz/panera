@@ -1,0 +1,31 @@
+[build]
+  command = "pip install -r requirements.txt -t ./backend"
+  publish = "."
+
+[functions]
+  directory = "backend"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/main/api/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/token"
+  to = "/.netlify/functions/main/token"
+  status = 200
+
+[[redirects]]
+  from = "/register"
+  to = "/.netlify/functions/main/register"
+  status = 200
+
+[[redirects]]
+  from = "/login"
+  to = "/login.html"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

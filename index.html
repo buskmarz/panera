@@ -1,0 +1,1484 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Panera · Control de Pasteles</title>
+
+  <meta name="theme-color" content="#2B4E59">
+  <link rel="icon" href="./assets/logo-panera.png">
+  <script>
+    // Pre-aplicar tema antes del CSS para evitar parpadeo
+    (() => {
+      try {
+        const saved = localStorage.getItem('panera.theme');
+        const t = (saved === 'dark' || saved === 'light') ? saved : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) { }
+    })();
+  </script>
+  <script>
+    // Forzar login antes de cargar la app
+    (() => {
+      try {
+        const token = localStorage.getItem('panera_token');
+        if (!token) window.location.replace('/login');
+      } catch (e) {
+        window.location.replace('/login');
+      }
+    })();
+  </script>
+
+  <!-- Fuentes y Chart.js (CDN) -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root {
+      --p-light: #E6E6E6;
+      --p-sky: #C3D8E0;
+      --p-blue: #66B6CC;
+      --p-deep: #2B4E59;
+      --p-gray: #819DA6;
+      --ink: #1f2937;
+      --bg: #f7fafc;
+      --ok: #16a34a;
+      --warn: #f59e0b;
+      --err: #dc2626;
+      --shadow: 0 6px 20px rgba(0, 0, 0, .08);
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Montserrat, system-ui, Segoe UI, Roboto, Helvetica, Arial
+    }
+
+    header {
+      background: linear-gradient(135deg, var(--p-blue), var(--p-deep));
+      color: #fff;
+      padding: 20px 16px
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: .3px
+    }
+
+    header small {
+      opacity: .9
+    }
+
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 16px
+    }
+
+    /* NAV & CARDS */
+    nav {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 8px 0 16px
+    }
+
+    nav button {
+      border: 0;
+      padding: 10px 12px;
+      background: #fff;
+      border-radius: 10px;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .06);
+      cursor: pointer;
+      transition: all .15s ease
+    }
+
+    nav button.active {
+      background: var(--p-blue);
+      color: #fff
+    }
+
+    section.card {
+      background: #fff;
+      border: 1px solid var(--p-light);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: var(--shadow);
+      margin: 0 0 16px
+    }
+
+    /* Solo las secciones de pestaña llevan esta clase: */
+    .tab {}
+
+    /* LAYOUT UTILS */
+    .grid {
+      display: grid;
+      gap: 12px
+    }
+
+    .g2 {
+      grid-template-columns: 1fr 1fr
+    }
+
+    .g3 {
+      grid-template-columns: repeat(3, 1fr)
+    }
+
+    .g4 {
+      grid-template-columns: repeat(4, 1fr)
+    }
+
+    .g5 {
+      grid-template-columns: repeat(5, 1fr)
+    }
+
+    .g6 {
+      grid-template-columns: repeat(6, 1fr)
+    }
+
+    .g7 {
+      grid-template-columns: repeat(7, 1fr)
+    }
+
+    .flex {
+      display: flex;
+      gap: 10px;
+      align-items: center
+    }
+
+    .hidden {
+      display: none
+    }
+
+    .hr {
+      height: 1px;
+      background: var(--p-light);
+      margin: 10px 0
+    }
+
+    .narrow {
+      max-width: 800px
+    }
+
+    /* FORMS & TABLES */
+    label {
+      font-size: 12px;
+      color: #4b5563;
+      font-weight: 600;
+      display: block;
+      margin-bottom: 4px
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--p-light);
+      border-radius: 10px;
+      background: #fff;
+      transition: border-color .15s ease, box-shadow .15s ease
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+      color: #9aa4ae
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--p-blue);
+      box-shadow: 0 0 0 3px rgba(102, 182, 204, .25)
+    }
+
+    select[required] option[disabled] {
+      color: #9aa4ae
+    }
+
+    nav button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, .08)
+    }
+
+    input[type="number"] {
+      text-align: right
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse
+    }
+
+    th,
+    td {
+      padding: 8px;
+      border-bottom: 1px dashed var(--p-light);
+      font-size: 14px
+    }
+
+    th {
+      background: #f3f6f8;
+      text-align: left
+    }
+
+    .right {
+      text-align: right
+    }
+
+    .muted {
+      color: #6b7280
+    }
+
+    tbody tr:hover {
+      background: #f9fbfe
+    }
+
+    /* QUICK LISTS / BADGES */
+    .list {
+      list-style: none;
+      padding: 0;
+      margin: 0
+    }
+
+    .list li {
+      padding: 8px 0;
+      border-bottom: 1px dashed var(--p-light);
+      display: flex;
+      gap: 8px;
+      justify-content: space-between;
+      align-items: center
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #eef2f7;
+      color: #0f172a;
+      font-size: 12px
+    }
+
+    /* BUTTONS & BADGES */
+    .btn {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .08s ease, box-shadow .15s ease
+    }
+
+    .btn.primary {
+      background: var(--p-deep);
+      color: #fff
+    }
+
+    .btn.alt {
+      background: var(--p-blue);
+      color: #fff
+    }
+
+    .btn.ghost {
+      background: transparent;
+      border: 2px solid var(--p-deep);
+      color: var(--p-deep)
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow)
+    }
+
+    .tag {
+      font-size: 12px;
+      background: var(--p-sky);
+      color: #0f172a;
+      padding: 3px 8px;
+      border-radius: 999px
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #eef6f9
+    }
+
+    /* TOTALS & KPI */
+    .totals {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px
+    }
+
+    .totals div {
+      background: #f9fbfc;
+      border: 1px solid var(--p-light);
+      border-radius: 10px;
+      padding: 10px
+    }
+
+    .totals.compact div {
+      padding: 6px;
+      font-size: 13px
+    }
+
+    .totals.compact b {
+      font-size: 16px
+    }
+
+    .totals.compact input {
+      padding: 6px;
+      font-size: 13px;
+      max-width: 140px
+    }
+
+    .kpi {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 10px
+    }
+
+    .kpi .box {
+      background: #fff;
+      border: 1px solid var(--p-light);
+      border-radius: 12px;
+      padding: 12px
+    }
+
+    .kpi .box h3 {
+      margin: 0 0 6px;
+      font-size: 13px;
+      color: #475569
+    }
+
+    .kpi .box b {
+      font-size: 18px
+    }
+
+    /* HEADER BRANDING */
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px
+    }
+
+    #logo-panera {
+      height: 44px;
+      max-height: 44px;
+      width: auto;
+      display: block
+    }
+
+    /* STICKY ACTIONS (venta) */
+    .sticky-actions {
+      position: sticky;
+      bottom: 0;
+      background: #fff;
+      padding: 12px;
+      border-top: 1px solid var(--p-light);
+      z-index: 10
+    }
+
+    footer {
+      color: var(--p-gray);
+      text-align: center;
+      font-size: 12px;
+      margin: 10px 0 30px
+    }
+
+    /* Extras (modal) */
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999
+    }
+
+    .modal .box {
+      background: #fff;
+      border-radius: 14px;
+      max-width: 800px;
+      width: 92vw;
+      padding: 16px;
+      border: 1px solid var(--p-light);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .18)
+    }
+
+    /* AUTOCOMPLETE CLIENTE */
+    .ac-wrap {
+      position: relative
+    }
+
+    .ac-list {
+      position: absolute;
+      z-index: 50;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: #fff;
+      border: 1px solid var(--p-light);
+      border-radius: 10px;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, .08);
+      max-height: 220px;
+      overflow: auto;
+      margin-top: 4px
+    }
+
+    .ac-item {
+      padding: 8px 10px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px
+    }
+
+    .ac-item:hover {
+      background: #f7fafc
+    }
+
+    .ac-name {
+      font-weight: 700
+    }
+
+    .ac-meta {
+      font-size: 12px;
+      color: #64748b;
+      text-align: right
+    }
+
+    /* Toasts */
+    .toast-wrap {
+      position: fixed;
+      right: 14px;
+      bottom: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 99999
+    }
+
+    .toast {
+      background: #fff;
+      border: 1px solid var(--p-light);
+      box-shadow: var(--shadow);
+      padding: 10px 12px;
+      border-radius: 10px;
+      min-width: 220px;
+      max-width: 360px
+    }
+
+    .toast.ok {
+      border-left: 4px solid var(--ok)
+    }
+
+    .toast.warn {
+      border-left: 4px solid var(--warn)
+    }
+
+    .toast.err {
+      border-left: 4px solid var(--err)
+    }
+
+    /* ===== Enhancements (UI Pro + Dark Mode) ===== */
+    /* Header sticky and layout */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100
+    }
+
+    header .wrap {
+      display: flex;
+      align-items: center;
+      justify-content: space-between
+    }
+
+    /* Dark theme palette overrides */
+    html[data-theme="dark"] {
+      --bg: #0b1220;
+      --ink: #e5e7eb;
+      --p-light: #1f2937;
+      --p-sky: #0f2030;
+      --p-blue: #4ba9c4;
+      --p-deep: #18323c;
+      --p-gray: #9aa4ae;
+      --ok: #22c55e;
+      --warn: #fbbf24;
+      --err: #ef4444;
+      --shadow: 0 6px 20px rgba(0, 0, 0, .40);
+    }
+
+    /* Cards, tables, controls in dark */
+    html[data-theme="dark"] section.card {
+      background: #0f172a;
+      border-color: #1f2937
+    }
+
+    html[data-theme="dark"] input,
+    html[data-theme="dark"] select,
+    html[data-theme="dark"] textarea {
+      background: #0b1320;
+      border-color: #1f2937;
+      color: var(--ink)
+    }
+
+    html[data-theme="dark"] nav button {
+      background: #0f172a;
+      border: 1px solid #1f2937;
+      color: var(--ink);
+      box-shadow: none
+    }
+
+    /* Toolbar */
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap
+    }
+
+    /* Small buttons */
+    .btn.sm {
+      padding: 6px 8px;
+      font-size: 12px;
+      border-radius: 8px
+    }
+
+    /* Sun/Moon icons toggle */
+    #theme-toggle #icon-sun {
+      display: inline-block
+    }
+
+    #theme-toggle #icon-moon {
+      display: none
+    }
+
+    html[data-theme="dark"] #theme-toggle #icon-sun {
+      display: none
+    }
+
+    html[data-theme="dark"] #theme-toggle #icon-moon {
+      display: inline-block
+    }
+
+    /* Table polish */
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f3f6f8
+    }
+
+    html[data-theme="dark"] th {
+      background: #0f2030
+    }
+
+    tbody tr:nth-child(odd) {
+      background: rgba(0, 0, 0, .02)
+    }
+
+    html[data-theme="dark"] tbody tr:nth-child(odd) {
+      background: rgba(255, 255, 255, .02)
+    }
+
+    html[data-theme="dark"] tbody tr:hover {
+      background: #0e1a26
+    }
+
+    /* Misc */
+    html[data-theme="dark"] .badge {
+      background: #102131;
+      color: #e2e8f0
+    }
+
+    html[data-theme="dark"] .tag {
+      background: #102131;
+      color: #e2e8f0
+    }
+
+    html[data-theme="dark"] .pill {
+      background: #0f2030;
+      color: #e2e8f0
+    }
+
+    html[data-theme="dark"] .sticky-actions {
+      background: #0f172a;
+      border-color: #1f2937
+    }
+
+    html[data-theme="dark"] .modal .box {
+      background: #0f172a;
+      border-color: #1f2937
+    }
+
+    html[data-theme="dark"] .ac-list {
+      background: #0f172a;
+      border-color: #1f2937
+    }
+
+    html[data-theme="dark"] .ac-item:hover {
+      background: #0e1a26
+    }
+
+    html[data-theme="dark"] .toast {
+      background: #0f172a;
+      border-color: #1f2937;
+      color: var(--ink)
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="wrap">
+      <div class="brand">
+        <img id="logo-panera" src="./assets/logo-panera.svg" alt="Panera Signature"
+          onerror="this.onerror=null;this.src='./assets/logo-panera.png';">
+        <div>
+          <h1>Control de Pasteles</h1>
+          <small>Folio, ventas, pagos, gastos, dashboard.</small>
+        </div>
+      </div>
+      <div class="flex">
+        <button id="theme-toggle" class="btn ghost sm" title="Cambiar tema" onclick="toggleTheme()"
+          aria-label="Cambiar tema">
+          <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+            fill="currentColor">
+            <path
+              d="M6.76 4.84l-1.8-1.79L3.17 4.84l1.79 1.79 1.8-1.79zM1 13h3v-2H1v2zm10 10h2v-3h-2v3zM4.22 19.78l1.79-1.79-1.8-1.79-1.79 1.79 1.8 1.79zM20 1h-2v3h2V1zM19.78 19.78l1.79-1.79-1.8-1.79-1.79 1.79 1.8 1.79zM17.24 4.84l1.79-1.79-1.8-1.79-1.79 1.79 1.8 1.79zM23 11h-3v2h3v-2zM12 6a6 6 0 100 12A6 6 0 0012 6z" />
+          </svg>
+          <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+            fill="currentColor">
+            <path d="M21.64 13a9 9 0 01-11.3-11.3A9 9 0 1021.64 13z" />
+          </svg>
+        </button>
+        <button class="btn ghost sm" onclick="logout()" title="Cerrar Sesión">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <nav>
+      <button class="active" data-tab="tab-dashboard">Dashboard</button>
+      <button data-tab="tab-ventas">Ventas</button>
+      <button data-tab="tab-clientes">Clientes</button>
+      <button data-tab="tab-productos">Productos</button>
+      <button data-tab="tab-cotizador">Cotizador</button>
+      <button data-tab="tab-gastos">Gastos</button>
+      <button data-tab="tab-reportes">Reportes</button>
+      <button data-tab="tab-config">Configuración</button>
+      <button data-tab="tab-calendario">Calendario</button>
+    </nav>
+
+    <!-- DASHBOARD -->
+    <section id="tab-dashboard" class="tab">
+      <section class="card">
+        <div class="flex" style="gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          <button class="btn primary" onclick="generarCorteRapidoHoy()">Corte rápido (hoy)</button>
+          <button class="btn ghost" onclick="descargarBackupRapido()">Backup rápido (.json)</button>
+        </div>
+
+        <div class="grid g3" style="margin-bottom:10px">
+          <div><label>Desde (Dashboard)</label><input type="date" id="db-desde" oninput="renderDashboard()"></div>
+          <div><label>Hasta (Dashboard)</label><input type="date" id="db-hasta" oninput="renderDashboard()"></div>
+          <div class="flex" style="align-items:flex-end"><span class="muted">Filtra KPIs, gráficas y totales por
+              rango</span></div>
+        </div>
+
+        <div class="kpi" id="kpi-cards"></div>
+      </section>
+
+      <div class="grid g2" style="margin-top:12px">
+        <section class="card">
+          <h3>Ventas por día (rango)</h3>
+          <canvas id="chVentas"></canvas>
+        </section>
+        <section class="card">
+          <h3>Métodos de pago (rango)</h3>
+          <canvas id="chMetodos"></canvas>
+        </section>
+        <section class="card">
+          <h3>Ventas por categoría (rango)</h3>
+          <canvas id="chCategorias"></canvas>
+        </section>
+        <section class="card">
+          <h3>Gastos por categoría (rango)</h3>
+          <canvas id="chGastos"></canvas>
+        </section>
+      </div>
+
+      <div class="grid g2" style="margin-top:12px">
+        <section class="card">
+          <h3>Top 3 productos (rango)</h3>
+          <canvas id="chTop3"></canvas>
+        </section>
+        <section class="card">
+          <h3>Ventas por día de semana (rango)</h3>
+          <canvas id="chDow"></canvas>
+        </section>
+      </div>
+
+      <div class="grid g2" style="margin-top:12px">
+        <section class="card">
+          <h3>Ventas por canal (rango)</h3>
+          <canvas id="chCanal"></canvas>
+        </section>
+      </div>
+
+      <div class="grid g2" style="margin-top:12px">
+        <section class="card">
+          <h3>Pagado vs Saldo (rango)</h3>
+          <canvas id="chPagadoSaldo"></canvas>
+        </section>
+        <section class="card">
+          <h3>Ticket promedio por día (rango)</h3>
+          <canvas id="chTicketProm"></canvas>
+        </section>
+      </div>
+
+      <section class="card" style="margin-top:12px">
+        <h3>Próximas entregas (siguientes 24 h)</h3>
+        <table id="tabla-entregas-proximas">
+          <thead>
+            <tr>
+              <th>Folio</th>
+              <th>Cliente</th>
+              <th>Fecha/Hora</th>
+              <th>Método</th>
+              <th>Estatus</th>
+              <th>Notas</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </section>
+
+    <!-- VENTAS -->
+    <section id="tab-ventas" class="tab hidden">
+      <section class="card">
+        <div class="grid g6">
+          <div>
+            <label>Cliente</label>
+            <div class="flex ac-wrap">
+              <input id="v-cliente" list="dl-clientes" placeholder="Buscar / escribir nombre o últimos 4 del teléfono"
+                autocomplete="off">
+              <datalist id="dl-clientes"></datalist>
+              <button class="btn alt" onclick="agregarClienteRapido()">+ Cliente</button>
+              <div id="v-cliente-suggest" class="ac-list hidden"></div>
+            </div>
+          </div>
+          <div>
+            <label>Canal</label>
+            <select id="v-canal" required>
+              <option value="" disabled selected>— Selecciona —</option>
+              <option>Whatsapp</option>
+              <option>Facebook</option>
+              <option>Instagram</option>
+              <option>Telefono</option>
+            </select>
+          </div>
+
+          <div>
+            <label>Método de envío</label>
+            <select id="envio-metodo" required>
+              <option value="" disabled selected>— Selecciona —</option>
+              <option>A domicilio</option>
+              <option>Recogen en Better</option>
+              <option>Recogen en Lomas</option>
+              <option>Recogen en Atzala</option>
+            </select>
+          </div>
+          <div>
+            <label>Status de pago</label>
+            <select id="v-estatus-pago-top" required>
+              <option value="" disabled selected>— Selecciona —</option>
+              <option value="por_cobrar">Por Cobrar</option>
+              <option value="pagado">Pagado</option>
+            </select>
+          </div>
+          <div>
+            <label>Método de pago</label>
+            <select id="v-metodo-pago-top" required></select>
+          </div>
+          <div>
+            <label>Fecha de venta</label>
+            <input id="v-fecha-venta" type="datetime-local">
+          </div>
+          <div>
+            <label>Estatus de entrega</label>
+            <select id="v-estatus-entrega-top" required>
+              <option value="" disabled selected>— Selecciona —</option>
+              <option>Por preparar</option>
+              <option>Listo</option>
+              <option>En camino</option>
+              <option>Entregado</option>
+              <option>Cancelado</option>
+            </select>
+          </div>
+
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="grid g3">
+          <div class="ac-wrap">
+            <label>Buscar producto rápido</label>
+            <input id="p-buscar-rapido" placeholder="Ej. conejito chico / lotus mini" autocomplete="off">
+            <div id="p-suggest" class="ac-list hidden"></div>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="grid g3">
+          <div>
+            <label>Categoría</label>
+            <select id="p-cat" required onchange="renderProductos()"></select>
+          </div>
+          <div>
+            <label>Producto</label>
+            <select id="p-prod" required onchange="renderVariantes()"></select>
+          </div>
+          <div>
+            <label>Tamaño / Variante</label>
+            <select id="p-var" required onchange="syncPrecio()"></select>
+          </div>
+        </div>
+
+        <div class="grid g3" style="margin-top:6px">
+          <div>
+            <label>Precio unitario</label>
+            <input type="number" id="p-precio" min="0" step="0.01">
+            <small class="muted">Los admin pueden modificar precio</small>
+          </div>
+          <div>
+            <label>Cantidad</label>
+            <input type="number" id="p-cant" min="1" value="1" step="1">
+          </div>
+          <div class="flex" style="align-items:flex-end">
+            <button class="btn primary" onclick="addItem()">Agregar a venta</button>
+            <span class="muted">⌘K para búsqueda global</span>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <div>
+          <table id="tabla-items">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Tamaño</th>
+                <th class="right">P. Unit</th>
+                <th class="right">Cant</th>
+                <th class="right">Total</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="totals compact" style="margin-top:8px; grid-template-columns:repeat(3,1fr)">
+          <div><b>Subtotal</b>
+            <div id="t-subtotal" class="right">$0.00</div>
+          </div>
+          <div>
+            <label>Descuento</label>
+            <input id="t-descuento" type="number" min="0" step="0.01" value="0" oninput="recalc()"
+              style="max-width:140px">
+          </div>
+          <div><b>Total</b>
+            <div id="t-total" class="right">$0.00</div>
+          </div>
+        </div>
+
+        <div class="grid g2" style="margin-top:12px">
+          <section class="card">
+            <h3>Pagos</h3>
+            <div class="grid g3" style="margin-bottom:8px">
+              <div>
+                <label>Estatus de pago</label>
+                <select id="v-estatus-pago" required>
+                  <option value="" disabled selected>— Selecciona —</option>
+                  <option value="por_cobrar">Por Cobrar</option>
+                  <option value="pagado">Pagado</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid g3">
+              <div>
+                <label>Método</label>
+                <select id="pago-metodo"></select>
+              </div>
+              <div>
+                <label>Monto</label>
+                <input id="pago-monto" type="number" min="0" step="0.01">
+              </div>
+              <div class="flex" style="align-items:flex-end">
+                <button class="btn alt" onclick="addPago()">Agregar pago</button>
+              </div>
+            </div>
+            <table id="tabla-pagos" style="margin-top:10px">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Método</th>
+                  <th class="right">Monto</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <div class="flex" style="margin-top:6px">
+              <span class="pill">Pagado: <b id="pagado">$0.00</b></span>
+              <span class="pill">Saldo: <b id="saldo">$0.00</b></span>
+            </div>
+          </section>
+
+          <section class="card">
+            <h3>Entrega</h3>
+            <div class="grid g2">
+              <div>
+                <label>Método de envío</label>
+                <input value="(selecciona arriba)" disabled>
+              </div>
+              <div>
+                <label>Fecha/Hora</label>
+                <input id="entrega-fecha" type="datetime-local">
+              </div>
+            </div>
+            <label>Dirección (si aplica)</label>
+            <input id="entrega-dir" placeholder="Calle, número, colonia, CP">
+            <label>Notas</label>
+            <textarea id="v-notas" rows="2" placeholder="Mensaje para producción o cliente"></textarea>
+            <div style="margin-top:6px">
+              <span class="tag">Estatus pago: <b id="estatus-pago">Por Cobrar</b></span>
+              <span class="tag">Estatus entrega: <b id="estatus-entrega">Por preparar</b></span>
+            </div>
+          </section>
+        </div>
+
+        <div class="sticky-actions flex">
+          <div class="toolbar">
+            <button class="btn primary" onclick="guardarVenta()">Guardar venta</button>
+            <button class="btn alt" onclick="imprimirTicket()">Imprimir ticket</button>
+            <button class="btn ghost" onclick="whatsappShare()">Compartir WhatsApp</button>
+          </div>
+          <div class="flex" style="margin-left:auto">
+            <button class="btn ghost" onclick="nuevaVenta()">Limpiar</button>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <h3>Ventas recientes</h3>
+        <div class="grid g6">
+          <div><label>Desde</label><input type="date" id="f-desde" oninput="renderVentasRecientes()"></div>
+          <div><label>Hasta</label><input type="date" id="f-hasta" oninput="renderVentasRecientes()"></div>
+          <div><label>Cliente</label><input id="f-cliente" placeholder="Filtrar por nombre"
+              oninput="renderVentasRecientes()"></div>
+          <div>
+            <label>Canal</label>
+            <select id="f-canal" onchange="renderVentasRecientes()"></select>
+          </div>
+          <div>
+            <label>Método de envío</label>
+            <select id="f-envio" onchange="renderVentasRecientes()"></select>
+          </div>
+          <div>
+            <label>Status de pago</label>
+            <select id="f-estatus" onchange="renderVentasRecientes()"></select>
+          </div>
+          <div>
+            <label>Método de pago</label>
+            <select id="f-mp" onchange="renderVentasRecientes()"></select>
+          </div>
+          <div>
+            <label>Estatus de entrega</label>
+            <select id="f-entrega" onchange="renderVentasRecientes()"></select>
+          </div>
+        </div>
+        <table id="tabla-ventas" style="margin-top:8px">
+          <thead>
+            <tr>
+              <th>Folio</th>
+              <th>Fecha</th>
+              <th>Cliente</th>
+              <th>Canal</th>
+              <th>Envío</th>
+              <th>Status de pago</th>
+              <th>Método pago</th>
+              <th class="right">Total</th>
+              <th class="right">Saldo</th>
+              <th>Entrega</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </section>
+
+    <!-- CLIENTES -->
+    <section id="tab-clientes" class="tab hidden">
+      <section class="card">
+        <div class="grid g3">
+          <div><label>Nombre</label><input id="c-nombre"></div>
+          <div><label>Teléfono</label><input id="c-tel"></div>
+          <div><label>Dirección</label><input id="c-dir" placeholder="Calle, número, colonia, CP"></div>
+        </div>
+        <label>Notas</label><input id="c-notas">
+        <div class="toolbar" style="margin-top:8px">
+          <button class="btn primary" onclick="guardarCliente()">Guardar</button>
+          <button class="btn ghost" onclick="limpiarCliente()">Limpiar</button>
+          <button class="btn alt" onclick="exportarCSVClientes()">Exportar CSV</button>
+        </div>
+        <div class="hr"></div>
+        <div class="grid g3">
+          <div><label>Buscar</label><input id="c-buscar" oninput="renderClientes()"></div>
+          <div><label>Ordenar</label>
+            <select id="c-orden" onchange="renderClientes()">
+              <option value="nombre">Nombre</option>
+              <option value="total">Total comprado</option>
+              <option value="ultima">Última compra</option>
+            </select>
+          </div>
+        </div>
+        <table id="tabla-clientes" style="margin-top:8px">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Teléfono</th>
+              <th>Dirección</th>
+              <th class="right">Total</th>
+              <th>Última compra</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </section>
+
+    <!-- PRODUCTOS -->
+    <section id="tab-productos" class="tab hidden">
+      <section class="card">
+        <div class="toolbar">
+          <button class="btn alt" onclick="abrirImportador()">Importar precios (CSV rápido)</button>
+          <button class="btn ghost" onclick="exportarJSON()">Backup JSON</button>
+          <button class="btn ghost" onclick="importarJSON()">Restaurar JSON</button>
+        </div>
+        <p class="muted">Formato CSV: <code>categoria,producto,variacion,precio</code> (ej.: <em>Pasteles,Pastel
+            Conejito,CH,340</em>).</p>
+        <div id="importador" class="hidden">
+          <textarea id="csv" rows="5" class="narrow" placeholder="Pega aquí tu CSV"></textarea>
+          <div class="toolbar"><button class="btn primary" onclick="procesarCSV()">Cargar</button> <button
+              class="btn ghost" onclick="cerrarImportador()">Cerrar</button></div>
+        </div>
+        <div class="grid g3" style="margin-top:10px">
+          <div><label>Categoría</label><select id="fpcat" onchange="renderTablaProductos()"></select></div>
+          <div><label>Buscar</label><input id="fpq" oninput="renderTablaProductos()"></div>
+          <div><label>Solo activos</label>
+            <select id="fpact" onchange="renderTablaProductos()">
+              <option value="todos">Todos</option>
+              <option value="activos">Activos</option>
+              <option value="inactivos">Inactivos</option>
+            </select>
+          </div>
+        </div>
+        <table id="tabla-productos" style="margin-top:8px">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th>Variante</th>
+              <th class="right">Precio</th>
+              <th>Activo</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </section>
+
+    <!-- COTIZADOR -->
+    <section id="tab-cotizador" class="tab hidden">
+      <section class="card">
+        <div class="flex" style="justify-content:space-between; align-items:center">
+          <h3 style="margin:0">Materiales (insumos)</h3>
+          <button class="btn alt" onclick="cargarDemoConejitoMini()">Cargar demo “Conejito mini”</button>
+        </div>
+        <div class="grid g4">
+          <div><label>Nombre</label><input id="ct-mt-nombre" placeholder="Ej. Conejitos 20 pzas (bote)"></div>
+          <div><label>Unidad (presentación)</label>
+            <select id="ct-mt-unidad">
+              <option value="pieza">Pieza</option>
+              <option value="gramo">Gramo</option>
+              <option value="kilogramo">Kilogramo</option>
+              <option value="mililitro">Mililitro</option>
+              <option value="litro">Litro</option>
+            </select>
+          </div>
+          <div><label>Contenido por presentación</label><input id="ct-mt-contenido" type="number" min="0" step="0.01"
+              placeholder="Ej. 20"></div>
+          <div><label>Costo presentación</label><input id="ct-mt-costo" type="number" min="0" step="0.01"
+              placeholder="Ej. 200"></div>
+        </div>
+        <div class="toolbar" style="margin-top:8px">
+          <button class="btn primary" onclick="guardarMaterial()">Guardar material</button>
+          <button class="btn ghost" onclick="limpiarMaterial()">Limpiar</button>
+        </div>
+        <div class="grid g4" style="margin-top:8px">
+          <div><label>Buscar material</label><input id="ct-mt-q" placeholder="Nombre o parte"
+              oninput="renderMateriales()"></div>
+          <div><label>Filtrar por unidad</label>
+            <select id="ct-mt-q-unit" onchange="renderMateriales()">
+              <option value="">(todas)</option>
+              <option value="pieza">Pieza</option>
+              <option value="gramo">Gramo</option>
+              <option value="kilogramo">Kilogramo</option>
+              <option value="mililitro">Mililitro</option>
+              <option value="litro">Litro</option>
+            </select>
+          </div>
+        </div>
+        <table id="tabla-materiales" style="margin-top:8px">
+          <thead>
+            <tr>
+              <th>Material</th>
+              <th>Unidad</th>
+              <th>Contenido presentación</th>
+              <th class="right">Costo presentación</th>
+              <th class="right">Costo por unidad</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <h3>Recetas</h3>
+        <div class="grid g4">
+          <div><label>Producto</label><input id="ct-r-nombre" placeholder="Ej. Pastel Conejito CH"></div>
+          <div><label>Rendimiento</label><input id="ct-r-rinde" type="number" min="1" step="1" value="1"></div>
+          <div><label>Unidad de venta</label><input id="ct-r-uv" placeholder="Ej. pieza / rebanada / paquete x n"></div>
+          <div><label>Precio venta</label><input id="ct-r-precio" type="number" min="0" step="0.01"></div>
+        </div>
+        <div class="grid g4" style="margin-top:8px">
+          <div><label>Material</label><select id="ct-r-mat"></select></div>
+          <div><label>Cantidad</label><input id="ct-r-cant" type="number" min="0" step="0.01"></div>
+          <div class="flex" style="align-items:flex-end"><button class="btn alt" onclick="addIngredienteReceta()"
+              id="ct-r-add-btn">Agregar ingrediente</button></div>
+        </div>
+        <table id="tabla-receta-it" style="margin-top:8px">
+          <thead>
+            <tr>
+              <th>Material</th>
+              <th>Cantidad</th>
+              <th>Unidad</th>
+              <th class="right">Costo unit</th>
+              <th class="right">Costo</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="grid g3 totals compact" style="margin-top:8px;grid-template-columns:repeat(3,1fr)">
+          <div><b>Total piezas</b>
+            <div id="ct-tot-pz" class="right"></div>
+          </div>
+          <div><b>Total gr/ml</b>
+            <div id="ct-tot-gr" class="right"></div>
+          </div>
+          <div><b>Indirectos</b>
+            <div id="ct-ci-total" class="right"></div>
+          </div>
+        </div>
+
+        <section class="card" style="margin-top:8px">
+          <h3>Costos indirectos</h3>
+          <div class="grid g3">
+            <div><label>Concepto</label><input id="ct-ci-conc" placeholder="Ej. Gas, luz, m.o."></div>
+            <div><label>Monto (MXN)</label><input id="ct-ci-monto" type="number" min="0" step="0.01"></div>
+            <div class="flex" style="align-items:flex-end"><button class="btn alt" onclick="addCostoIndirecto()">Agregar
+                costo</button></div>
+          </div>
+          <table id="ct-indirectos" style="margin-top:8px">
+            <thead>
+              <tr>
+                <th>Concepto</th>
+                <th class="right">Monto</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </section>
+
+        <div class="totals compact" style="margin-top:8px;grid-template-columns:repeat(3,1fr)">
+          <div><b>Costo receta</b>
+            <div id="ct-r-costo" class="right"></div>
+          </div>
+          <div><b>Costo por unidad de venta</b>
+            <div id="ct-r-costo-unit" class="right"></div>
+          </div>
+          <div><b>Precio venta</b>
+            <div id="ct-r-precio-out" class="right"></div>
+          </div>
+        </div>
+        <div class="totals compact" style="margin-top:8px;grid-template-columns:repeat(2,1fr)">
+          <div><b>Margen neto</b>
+            <div id="ct-r-margen-neto" class="right"></div>
+          </div>
+          <div><b>Costo marginal (%)</b>
+            <div id="ct-r-costo-marg" class="right"></div>
+          </div>
+        </div>
+        <div style="margin-top:8px" class="card">
+          <h3>Distribución de costo</h3><canvas id="ct-ch-distrib"></canvas>
+        </div>
+        <div class="toolbar" style="margin-top:8px">
+          <button class="btn primary" onclick="guardarReceta()">Guardar receta</button>
+          <button class="btn ghost" onclick="nuevaReceta()">Limpiar receta</button>
+          <button class="btn ghost" onclick="importarJSONReceta()">Importar receta</button>
+        </div>
+        <div class="hr"></div>
+        <h3>Recetas guardadas</h3>
+        <table id="tabla-recetas">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th class="right">Costo</th>
+              <th class="right">Precio</th>
+              <th class="right">Margen</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+
+        <div class="grid g3" style="margin-top:10px">
+          <div><label>Alergias</label><textarea id="ct-r-alergias" rows="2"
+              placeholder="Ej. contiene gluten, nuez, lácteos"></textarea></div>
+          <div><label>Preparado por / Puesto</label><input id="ct-r-prep" placeholder="Nombre" /><input
+              id="ct-r-prep-puesto" placeholder="Puesto" /></div>
+          <div><label>Aprobado por / Puesto</label><input id="ct-r-apr" placeholder="Nombre" /><input
+              id="ct-r-apr-puesto" placeholder="Puesto" /></div>
+        </div>
+      </section>
+    </section>
+
+    <!-- GASTOS -->
+    <section id="tab-gastos" class="tab hidden">
+      <section class="card">
+        <div class="grid g3">
+          <div><label>Fecha</label><input id="g-fecha" type="date"></div>
+          <div><label>Categoría</label>
+            <select id="g-cat"></select>
+          </div>
+          <div><label>Método</label>
+            <select id="g-metodo"></select>
+          </div>
+        </div>
+        <div class="grid g2">
+          <div><label>Proveedor</label><input id="g-prov" list="dl-proveedores"><datalist
+              id="dl-proveedores"></datalist></div>
+          <div><label>Monto</label><input id="g-monto" type="number" min="0" step="0.01"></div>
+        </div>
+        <label>Descripción</label><input id="g-desc" placeholder="Ej. empaques, mantequilla, etc.">
+        <div class="toolbar" style="margin-top:8px">
+          <button class="btn primary" onclick="guardarGasto()">Guardar gasto</button>
+          <button class="btn ghost" onclick="renderGastos()">Actualizar</button>
+          <button class="btn alt" onclick="exportarCSVGastos()">Exportar CSV</button>
+        </div>
+        <div class="hr"></div>
+        <div class="grid g3">
+          <div><label>Desde</label><input type="date" id="fg-desde" oninput="renderGastos()"></div>
+          <div><label>Hasta</label><input type="date" id="fg-hasta" oninput="renderGastos()"></div>
+          <div><label>Proveedor</label><input id="fg-prov" oninput="renderGastos()" placeholder="Nombre o parte"></div>
+        </div>
+        <div class="grid g4" style="margin-top:8px">
+          <div><label>Categoría</label>
+            <select id="fg-cat" onchange="renderGastos()"></select>
+          </div>
+          <div><label>Método</label>
+            <select id="fg-metodo" onchange="renderGastos()"></select>
+          </div>
+          <div><label>Buscar</label>
+            <input id="fg-q" oninput="renderGastos()" placeholder="Descripción / proveedor">
+          </div>
+          <div class="flex" style="align-items:flex-end">
+            <button class="btn ghost" onclick="fijarMesActualGastos()">Mes actual</button>
+          </div>
+        </div>
+        <table id="tabla-gastos" style="margin-top:8px">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Categoría</th>
+              <th>Proveedor</th>
+              <th>Descripción</th>
+              <th class="right">Monto</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div id="gastos-resumen" style="margin-top:8px" class="muted"></div>
+      </section>
+    </section>
+
+    <!-- REPORTES -->
+    <section id="tab-reportes" class="tab hidden">
+      <section class="card">
+        <div class="grid g4">
+          <div><label>Desde</label><input type="date" id="r-desde"></div>
+          <div><label>Hasta</label><input type="date" id="r-hasta"></div>
+          <div><label>Cliente</label><input id="r-cliente" placeholder="Nombre (opcional)"></div>
+          <div>
+            <label>Tipo de reporte</label>
+            <select id="r-tipo">
+              <option value="resumen">Resumen (ingresos, gastos, utilidad)</option>
+              <option value="ventas">Ventas – detalle</option>
+              <option value="gastos">Gastos – detalle</option>
+              <option value="ventas_canal">Ventas por canal</option>
+              <option value="ventas_sucursal">Ventas por sucursal</option>
+              <option value="ventas_mp">Ventas por método de pago</option>
+              <option value="ventas_estatus">Ventas por estatus de pago</option>
+              <option value="ventas_categoria">Ventas por categoría</option>
+              <option value="top_productos">Top productos</option>
+              <option value="corte_caja">Corte de caja (rango)</option>
+            </select>
+          </div>
+        </div>
+        <div class="toolbar" style="margin-top:8px">
+          <button class="btn primary" onclick="generarReporte()">Generar</button>
+          <button class="btn alt" onclick="exportarCSVVentas()">Exportar ventas CSV</button>
+          <button class="btn ghost" onclick="exportarCSVGastos()">Exportar gastos CSV</button>
+        </div>
+        <div id="reporte-out" style="margin-top:10px"></div>
+      </section>
+    </section>
+
+    <!-- CONFIG -->
+    <section id="tab-config" class="tab hidden">
+      <section class="card narrow">
+        <div class="grid g3">
+          <div><label>Nombre del negocio</label><input id="cfg-nombre" placeholder="Ej. Panera Signature"></div>
+          <div><label>Prefijo folio</label><input id="cfg-prefijo" value="PAN"></div>
+          <div><label>Auto-imprimir ticket al guardar</label>
+            <select id="cfg-autoprint">
+              <option value="no">No</option>
+              <option value="si">Sí</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid g2" style="margin-top:10px">
+          <div>
+            <label>Métodos de pago (ventas)</label>
+            <input id="cfg-mp-ventas" placeholder="Por definir,Efectivo,Transferencia,Tarjeta">
+            <small class="muted">Separados por coma. El primero será el predeterminado.</small>
+          </div>
+          <div>
+            <label>Métodos de pago (gastos)</label>
+            <input id="cfg-mp-gastos" placeholder="Efectivo,Tarjeta,Transferencia,Cortesía">
+          </div>
+        </div>
+        <div class="grid g3" style="margin-top:10px">
+          <div><label>Colores (UI)</label><input value="#C3D8E0" disabled></div>
+        </div>
+        <div class="toolbar" style="margin-top:10px">
+          <button class="btn primary" onclick="guardarConfig()">Guardar configuración</button>
+          <button class="btn ghost" onclick="resetearTodo()">Borrar todo (peligro)</button>
+        </div>
+      </section>
+    </section>
+
+    <!-- CALENDARIO / TENDENCIAS -->
+    <section id="tab-calendario" class="tab hidden">
+      <section class="card">
+        <h3>Calendario de eventos y tendencias</h3>
+        <div class="grid g4">
+          <div><label>Evento</label><input id="ev-nombre" placeholder="Ej. Día de las Madres"></div>
+          <div><label>Fecha</label><input id="ev-fecha" type="date"></div>
+          <div><label>Relevante</label>
+            <select id="ev-rel">
+              <option>No</option>
+              <option>Sí</option>
+            </select>
+          </div>
+          <div class="flex" style="align-items:flex-end"><button class="btn primary" onclick="agregarEvento()">Agregar
+              evento</button></div>
+        </div>
+        <div class="grid g4" style="margin-top:8px">
+          <div><label>Año</label><input id="ev-year" type="number" min="2020" max="2100"></div>
+          <div><label>Plantilla</label>
+            <select id="ev-template">
+              <option value="mx">Marketing MX</option>
+            </select>
+          </div>
+          <div class="flex" style="align-items:flex-end"><button class="btn alt"
+              onclick="seedMarketingCalendar()">Cargar calendario marketing</button></div>
+        </div>
+        <div class="grid g2" style="margin-top:12px">
+          <section class="card">
+            <div class="flex" style="justify-content:space-between;align-items:center">
+              <h3 style="margin:0" id="cal-title">Vista mensual</h3>
+              <div class="flex">
+                <button class="btn ghost" onclick="navMes(-1)">◀</button>
+                <button class="btn ghost" onclick="navMes(1)">▶</button>
+              </div>
+            </div>
+            <div id="cal-grid" class="grid g7" style="margin-top:8px"></div>
+          </section>
+          <section class="card">
+            <h3>Próximos eventos</h3>
+            <table id="tabla-eventos">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Evento</th>
+                  <th>Relevante</th>
+                  <th class="right">Días</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </section>
+        </div>
+      </section>
+    </section>
+
+    <footer><span id="footer-brand">Panera Signature</span>.</footer>
+  </div>
+
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
