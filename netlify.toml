@@ -2,6 +2,9 @@
   command = "pip install -r requirements.txt -t ./backend"
   publish = "."
 
+[build.environment]
+  PYTHON_VERSION = "3.11.8"
+
 [functions]
   directory = "backend"
 
