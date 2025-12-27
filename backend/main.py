@@ -16,7 +16,7 @@ function_dir = Path(__file__).resolve().parent
 if str(function_dir) not in sys.path:
     sys.path.insert(0, str(function_dir))
 
-import models, database, auth
+from lib import models, database, auth
 
 # Create tables
 models.Base.metadata.create_all(bind=database.engine)

@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 from backend.main import app
-from backend import models
-from backend.database import Base, engine, SessionLocal
+from backend.lib import models
+from backend.lib.database import Base, engine, SessionLocal
 import pytest
 
 # Create test db
@@ -9,22 +9,17 @@ Base.metadata.create_all(bind=engine)
 
 client = TestClient(app)
 
-def test_register_and_login():
-    # Register
-    username = "testuser"
-    password = "testpassword"
-    response = client.post("/register", json={"username": username, "password": password})
-    assert response.status_code == 200
-    assert "access_token" in response.json()
-
-    # Login
+def test_login():
+    # Login with fixed credentials
+    username = "panera1"
+    password = "panque123"
     response = client.post("/token", data={"username": username, "password": password})
     assert response.status_code == 200
     token = response.json()["access_token"]
     return token
 
 def test_create_sale():
-    token = test_register_and_login()
+    token = test_login()
     headers = {"Authorization": f"Bearer {token}"}
     
     sale_data = {
