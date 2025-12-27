@@ -77,7 +77,12 @@
     </div>
 
     <script>
-        const API_URL = ""; // Relative path
+        function getApiPrefix() {
+            const host = window.location.hostname;
+            if (host === "localhost" || host === "127.0.0.1") return "";
+            return "/.netlify/functions/main";
+        }
+        const API_PREFIX = getApiPrefix();
 
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -86,7 +91,7 @@
             const errorDiv = document.getElementById('error-msg');
 
             try {
-                const endpoint = '/token';
+                const endpoint = `${API_PREFIX}/token`;
                 const body = new URLSearchParams({ username, password });
                 const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
 
@@ -95,7 +100,10 @@
                 let data = {};
                 try { data = text ? JSON.parse(text) : {}; } catch (e) { data = {}; }
 
-                if (!res.ok) throw new Error(data.detail || 'Error en la solicitud');
+                if (!res.ok) {
+                    const detail = data.detail || (text && text.trim().startsWith("<") ? "Servidor no disponible" : "Error en la solicitud");
+                    throw new Error(detail);
+                }
 
                 localStorage.setItem('panera_token', data.access_token);
                 window.location.href = '/';
