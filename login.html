@@ -73,19 +73,11 @@
             <input type="password" id="password" placeholder="Contraseña" required>
             <button type="submit">Iniciar Sesión</button>
         </form>
-        <div class="link" onclick="toggleRegister()">¿No tienes cuenta? Regístrate</div>
+        <div class="link">Acceso restringido · Solo personal autorizado</div>
     </div>
 
     <script>
         const API_URL = ""; // Relative path
-        let isRegister = false;
-
-        function toggleRegister() {
-            isRegister = !isRegister;
-            document.querySelector('button').textContent = isRegister ? "Registrarse" : "Iniciar Sesión";
-            document.querySelector('.link').textContent = isRegister ? "¿Ya tienes cuenta? Inicia Sesión" : "¿No tienes cuenta? Regístrate";
-            document.getElementById('error-msg').style.display = 'none';
-        }
 
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -94,17 +86,14 @@
             const errorDiv = document.getElementById('error-msg');
 
             try {
-                const endpoint = isRegister ? '/register' : '/token';
-                const body = isRegister 
-                    ? JSON.stringify({ username, password })
-                    : new URLSearchParams({ username, password });
-                
-                const headers = isRegister 
-                    ? { 'Content-Type': 'application/json' }
-                    : { 'Content-Type': 'application/x-www-form-urlencoded' };
+                const endpoint = '/token';
+                const body = new URLSearchParams({ username, password });
+                const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
 
                 const res = await fetch(endpoint, { method: 'POST', headers, body });
-                const data = await res.json();
+                const text = await res.text();
+                let data = {};
+                try { data = text ? JSON.parse(text) : {}; } catch (e) { data = {}; }
 
                 if (!res.ok) throw new Error(data.detail || 'Error en la solicitud');
 
