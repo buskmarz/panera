@@ -1,3 +1,7 @@
+import os
+import sys
+from pathlib import Path
+
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,9 +10,13 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
 from mangum import Mangum
-import os
 
-from . import models, database, auth
+# Ensure function directory is on sys.path for Netlify runtime imports.
+function_dir = Path(__file__).resolve().parent
+if str(function_dir) not in sys.path:
+    sys.path.insert(0, str(function_dir))
+
+import models, database, auth
 
 # Create tables
 models.Base.metadata.create_all(bind=database.engine)
@@ -35,7 +43,10 @@ def get_db():
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+AUTH_USERNAME = os.getenv("APP_USERNAME", "panera1")
+AUTH_PASSWORD = os.getenv("APP_PASSWORD", "panque123")
+
+async def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -44,23 +55,16 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     try:
         payload = auth.jwt.decode(token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
         username: str = payload.get("sub")
-        if username is None:
+        if username is None or username != AUTH_USERNAME:
             raise credentials_exception
     except auth.JWTError:
         raise credentials_exception
-    user = db.query(models.User).filter(models.User.username == username).first()
-    if user is None:
-        raise credentials_exception
-    return user
+    return {"username": username, "role": "admin"}
 
 # Pydantic Models (Schemas)
 class Token(BaseModel):
     access_token: str
     token_type: str
-
-class UserCreate(BaseModel):
-    username: str
-    password: str
 
 class SaleCreate(BaseModel):
     id: str
@@ -83,9 +87,8 @@ class SaleCreate(BaseModel):
 
 # Auth Endpoints
 @app.post("/token", response_model=Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.username == form_data.username).first()
-    if not user or not auth.verify_password(form_data.password, user.hashed_password):
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    if form_data.username != AUTH_USERNAME or form_data.password != AUTH_PASSWORD:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -93,26 +96,17 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         )
     access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = auth.create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+        data={"sub": AUTH_USERNAME}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-@app.post("/register", response_model=Token)
-def register(user: UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(models.User).filter(models.User.username == user.username).first()
-    if db_user:
-        raise HTTPException(status_code=400, detail="Username already registered")
-    hashed_password = auth.get_password_hash(user.password)
-    db_user = models.User(username=user.username, hashed_password=hashed_password)
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    access_token = auth.create_access_token(data={"sub": user.username})
-    return {"access_token": access_token, "token_type": "bearer"}
+@app.post("/register")
+def register():
+    raise HTTPException(status_code=403, detail="Registration disabled")
 
 @app.get("/users/me")
-async def read_users_me(current_user: models.User = Depends(get_current_user)):
-    return {"username": current_user.username, "role": current_user.role}
+async def read_users_me(current_user: dict = Depends(get_current_user)):
+    return {"username": current_user["username"], "role": current_user["role"]}
 
 # Data Endpoints
 @app.get("/api/sales")
@@ -179,20 +173,27 @@ def create_product(product: dict, db: Session = Depends(get_db), current_user: m
     return {"status": "ok"}
 
 # Serve Frontend
-# Mount assets
+# Mount assets only when running with local static files available.
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 assets_dir = os.path.join(base_dir, "assets")
-app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+if os.path.isdir(assets_dir):
+    app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
 # Serve index.html and login.html
 from fastapi.responses import FileResponse
 
 @app.get("/")
 async def read_index():
-    return FileResponse(os.path.join(base_dir, "index.html"))
+    index_path = os.path.join(base_dir, "index.html")
+    if not os.path.isfile(index_path):
+        raise HTTPException(status_code=404, detail="Not found")
+    return FileResponse(index_path)
 
 @app.get("/login")
 async def read_login():
-    return FileResponse(os.path.join(base_dir, "login.html"))
+    login_path = os.path.join(base_dir, "login.html")
+    if not os.path.isfile(login_path):
+        raise HTTPException(status_code=404, detail="Not found")
+    return FileResponse(login_path)
 
 from datetime import timedelta
