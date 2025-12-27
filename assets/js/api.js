@@ -1,4 +1,10 @@
-const API_BASE = "/api";
+function getApiPrefix() {
+    const host = window.location.hostname;
+    if (host === "localhost" || host === "127.0.0.1") return "";
+    return "/.netlify/functions/main";
+}
+
+const API_BASE = `${getApiPrefix()}/api`;
 
 function getToken() {
     return localStorage.getItem('panera_token');
@@ -25,15 +31,18 @@ async function apiCall(endpoint, method = 'GET', body = null) {
     if (body) options.body = JSON.stringify(body);
 
     const res = await fetch(API_BASE + endpoint, options);
+    const text = await res.text();
+    let data = {};
+    try { data = text ? JSON.parse(text) : {}; } catch (e) { data = {}; }
     if (res.status === 401) {
         logout();
         return;
     }
     if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || 'API Error');
+        const detail = data.detail || (text && text.trim().startsWith("<") ? "Servidor no disponible" : "API Error");
+        throw new Error(detail);
     }
-    return res.json();
+    return data;
 }
 
 const api = {
