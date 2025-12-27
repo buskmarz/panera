@@ -3,7 +3,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./panera.db")
+def _default_sqlite_url():
+    if os.getenv("NETLIFY") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
+        # Lambda/Netlify filesystem is read-only except /tmp.
+        return "sqlite:////tmp/panera.db"
+    return "sqlite:///./panera.db"
+
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", _default_sqlite_url())
 
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
     engine = create_engine(
